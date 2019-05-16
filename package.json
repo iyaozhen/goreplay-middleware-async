@@ -1,0 +1,43 @@
+{
+  "_from": "goreplay_middleware@latest",
+  "_id": "goreplay_middleware@1.0.0",
+  "_inBundle": false,
+  "_integrity": "sha1-g9F6nPKSoKOBEMBkSnm27j2qGqo=",
+  "_location": "/goreplay_middleware",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "goreplay_middleware@latest",
+    "name": "goreplay_middleware",
+    "escapedName": "goreplay_middleware",
+    "rawSpec": "latest",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "http://registry.npm.baidu-int.com/goreplay_middleware/-/goreplay_middleware-1.0.0.tgz",
+  "_shasum": "83d17a9cf292a0a38110c0644a79b6ee3daa1aaa",
+  "_spec": "goreplay_middleware@latest",
+  "_where": "/Users/yaozhen/local/code2/baidu/bdim/hi-server-test/http_hi_test/xplatform_test/cases/gorelay",
+  "author": {
+    "name": "Leonid Bugaev"
+  },
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "Package for writing middleware for GoReplay https://goreplay.org",
+  "keywords": [
+    "middleware",
+    "goreplay"
+  ],
+  "license": "LGPL-3.0",
+  "main": "middleware.js",
+  "name": "goreplay_middleware",
+  "scripts": {
+    "benchmark": "node -e \"var gor = require('./middleware.js'); gor.benchmark(); process.exit()\"",
+    "test": "node -e \"var gor = require('./middleware.js'); gor.test(); process.exit()\""
+  },
+  "version": "1.0.0"
+}
