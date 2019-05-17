@@ -1,17 +1,19 @@
-// ======= GoReplay Middleware helper =============
-// Created by Leonid Bugaev in 2017
-//
-// For questions use GitHub or support@goreplay.org
-//
-// GoReplay: https://github.com/buger/goreplay
-// Middleware package: https://github.com/buger/goreplay/middleware
+/**
+ * @name goreplay_middleware_async
+ * @file middleware.js
+ * @description Package for writing async middleware for GoReplay https://goreplay.org
+ * @link https://github.com/iyaozhen/goreplay-middleware-async
+ * @author Created by Leonid Bugaev in 2017. Forked by iyaozhen in 2019
+ */
 
-var middleware;
+const readline = require('readline');
+
+let middleware;
 
 function init() {
-    var proxy = {
+    let proxy = {
         ch: {},
-        on: function(chan, id, cb) {
+        on: function (chan, id, cb) {
             if (!cb && id) {
                 cb = id;
             } else if (cb && id) {
@@ -29,76 +31,81 @@ function init() {
 
             return proxy;
         },
-
-        emit: async function(msg, raw) {
-            var chanPrefix;
-
-            switch(msg.type) {
-                case "1": chanPrefix = "request"; break;
-                case "2": chanPrefix = "response"; break;
-                case "3": chanPrefix = "replay"; break;
+        /**
+         * deal with gor input
+         * @param msg parsed msg
+         * @param raw hex raw data
+         * @returns {Promise<*>}
+         */
+        emit: async function (msg, raw) {
+            let chanPrefix;
+            switch (msg.type) {
+                case "1":
+                    chanPrefix = "request";
+                    break;
+                case "2":
+                    chanPrefix = "response";
+                    break;
+                case "3":
+                    chanPrefix = "replay";
+                    break;
             }
 
             let resp = msg;
-
             for await (let [idx, chanID] of ["message", chanPrefix, chanPrefix + "#" + msg.ID].entries()) {
-                console.error(`${idx} ${chanID}`)
                 if (proxy.ch[chanID]) {
-                    for await (ch of proxy.ch[chanID]) {
+                    for await (let ch of proxy.ch[chanID]) {
+                        // user callback
                         let r = await ch.cb(msg);
-                        console.error(`ch.cb() ${new Date().getTime()} ${resp.http.toString('utf-8')}`)
                         if (resp) resp = r; // If one of callback decided not to send response back, do not override it in global callbacks
                     }
-                    // await proxy.ch[chanID].forEach(async function(ch){
-                    //     let r = await ch.cb(msg);
-                    //     console.error(`ch.cb() ${new Date().getTime()} ${resp.http.toString('utf-8')}`)
-                    //     if (resp) resp = r; // If one of callback decided not to send response back, do not override it in global callbacks
-                    // })
-                    
+
                     // Cleanup Individual message channels to avoid memory leaks
-                    if (idx == 2) {
+                    if (idx === 2) {
                         delete proxy.ch[chanID]
                     }
                 }
             }
 
             if (resp) {
-              console.error(`resp ${new Date().getTime()} ${resp.http.toString('utf-8')}`)
-              process.stdout.write(`${resp.rawMeta.toString('hex')}${Buffer.from("\n").toString("hex")}${resp.http.toString('hex')}\n`)
+                process.stdout.write(
+                    `${resp.rawMeta.toString('hex')}${Buffer.from("\n").toString("hex")}${resp.http.toString('hex')}\n`
+                )
             }
 
             return resp
         }
-    }
+    };
 
     // Clean up old messaged ID specific channels if they are older then 60s
-    let gc = function(gcTime){
+    let gc = function (gcTime) {
         let now = new Date();
-        for (k in proxy.ch) {
-            if (k.indexOf("#") == -1) continue;
+        for (let k in proxy.ch) {
+            if (proxy.ch.hasOwnProperty(k)) {
+                if (k.indexOf("#") === -1) continue;
 
-            proxy.ch[k] = proxy.ch[k].filter(function(ch){
-                return (now - ch.created) < gcTime
-            })
+                proxy.ch[k] = proxy.ch[k].filter(function (ch) {
+                    return (now - ch.created) < gcTime
+                });
 
-            if (proxy.ch[k].length == 0) {
-                delete proxy.ch[k]
+                if (proxy.ch[k].length === 0) {
+                    delete proxy.ch[k]
+                }
             }
         }
-    }
-    proxy.gc = gc
+    };
+    proxy.gc = gc;
 
-    setInterval(function(){
+    setInterval(function () {
         gc(10 * 1000)
     }, 1000);
 
-    const readline = require('readline');
     const rl = readline.createInterface({
-          input: process.stdin
+        input: process.stdin
     });
 
-    rl.on('line', async function(line) {
-        let msg = parseMessage(line)
+    rl.on('line', async function (line) {
+        let msg = parseMessage(line);
         if (msg) {
             await proxy.emit(msg, line)
         }
@@ -127,7 +134,7 @@ function parseMessage(msg) {
             meta: metaArr,
             http: raw
         }
-    } catch(e) {
+    } catch (e) {
         fail(`Error while parsing incoming request: ${msg}`)
     }
 }
@@ -164,20 +171,20 @@ function searchResponses(id, searchPattern, callback) {
         return
     }
 
-    middleware.on("response", id, function(resp){
-        if (resp.http.indexOf(indexPattern) == -1) {
-            callback()
+    middleware.on("response", id, function (resp) {
+        if (resp.http.indexOf(indexPattern) === -1) {
+            callback();
             return resp
         }
 
         let respMatch = resp.http.toString('utf-8').match(re);
         if (!respMatch) {
-            callback()
+            callback();
             return resp
         }
 
-        middleware.on("replay", id, function(repl) {
-            if (repl.http.indexOf(indexPattern) == -1) {
+        middleware.on("replay", id, function (repl) {
+            if (repl.http.indexOf(indexPattern) === -1) {
                 callback(respMatch[1]);
                 return repl;
             }
@@ -188,11 +195,11 @@ function searchResponses(id, searchPattern, callback) {
                 callback(respMatch[1]);
                 return repl;
             }
-        
+
             callback(respMatch[1], replMatch[1]);
-            
+
             return repl;
-        })
+        });
 
         return resp;
     })
@@ -239,7 +246,7 @@ function setHttpPathParam(payload, name, value) {
     let path = httpPath(payload);
     let re = new RegExp(name + "=([^&$]+)");
     let newPath = path.replace(re, name + "=" + encodeURI(value));
-    
+
     // If we should add new param instead
     if (newPath == path) {
         if (newPath.indexOf("?") == -1) {
@@ -264,14 +271,14 @@ function setHttpStatus(payload, newStatus) {
 }
 
 function httpHeaders(payload) {
-    var httpHeaderString = payload.slice(0,payload.indexOf("\r\n\r\n") + 4).toString().split("\n").slice(1);
+    var httpHeaderString = payload.slice(0, payload.indexOf("\r\n\r\n") + 4).toString().split("\n").slice(1);
     var headers = {};
 
     for (var item in httpHeaderString) {
         var parts = httpHeaderString[item].split(":");
 
         if (parts.length > 1) {
-            headers[parts[0]] = parts.slice(1).join(":").trim();    
+            headers[parts[0]] = parts.slice(1).join(":").trim();
         }
     }
 
@@ -281,11 +288,11 @@ function httpHeaders(payload) {
 function httpHeader(payload, name) {
     var currentLine = 0;
     var i = 0;
-    var header = { start: -1, end: -1, valueStart: -1 }
+    var header = {start: -1, end: -1, valueStart: -1}
     var nameBuf = Buffer.from(name);
     var nameBufLower = Buffer.from(name.toLowerCase());
 
-    while(c = payload[i]) {
+    while (c = payload[i]) {
         if (c == 13) { // new line "\n"
             currentLine++;
             i++
@@ -333,13 +340,13 @@ function setHttpHeader(payload, name, value) {
 }
 
 function deleteHttpHeader(payload, name) {
-	let header = httpHeader(payload, name);
+    let header = httpHeader(payload, name);
 
     if (header) {
-        return Buffer.concat([payload.slice(0, header.start), payload.slice(header.end+1, payload.length)])
+        return Buffer.concat([payload.slice(0, header.start), payload.slice(header.end + 1, payload.length)])
     }
 
-	return payload
+    return payload
 }
 
 function httpBody(payload) {
@@ -369,7 +376,7 @@ function setHttpBodyParam(payload, name, value) {
 
     let newBody = body.toString('utf-8');
 
-    if (newBody.indexOf(name + "=") != -1 ) {
+    if (newBody.indexOf(name + "=") != -1) {
         newBody = newBody.replace(re, name + "=" + encodeURI(value));
     } else {
         if (newBody.indexOf("=") != -1) {
@@ -377,14 +384,16 @@ function setHttpBodyParam(payload, name, value) {
         }
         newBody += name + "=" + value;
     }
-    
+
     return setHttpBody(payload, Buffer.from(newBody));
 }
 
 function setHttpCookie(payload, name, value) {
     let h = httpHeader(payload, "Cookie");
     let cookie = h ? h.value : "";
-    let cookies = cookie.split("; ").filter(function(v){ return v.indexOf(name + "=") != 0 })
+    let cookies = cookie.split("; ").filter(function (v) {
+        return v.indexOf(name + "=") != 0
+    })
     cookies.push(name + "=" + value)
     return setHttpHeader(payload, "Cookie", cookies.join("; "))
 }
@@ -392,7 +401,9 @@ function setHttpCookie(payload, name, value) {
 function deleteHttpCookie(payload, name) {
     let h = httpHeader(payload, "Cookie");
     let cookie = h ? h.value : "";
-    let cookies = cookie.split("; ").filter(function(v){ return v.indexOf(name + "=") != 0 })
+    let cookies = cookie.split("; ").filter(function (v) {
+        return v.indexOf(name + "=") != 0
+    })
     return setHttpHeader(payload, "Cookie", cookies.join("; "))
 }
 
@@ -400,7 +411,7 @@ function httpCookie(payload, name) {
     let h = httpHeader(payload, "Cookie");
     let cookie = h ? h.value : "";
     let value;
-    let cookies = cookie.split("; ").forEach(function(v){
+    let cookies = cookie.split("; ").forEach(function (v) {
         if (v.indexOf(name + "=") == 0) {
             value = v.substr(name.length + 1);
         }
@@ -410,7 +421,9 @@ function httpCookie(payload, name) {
 
 module.exports = {
     init: init,
-    on: function(){ return middleware.on.apply(this, arguments) },
+    on: function () {
+        return middleware.on.apply(this, arguments)
+    },
     parseMessage: parseMessage,
     searchResponses: searchResponses,
     httpPath: httpPath,
@@ -438,45 +451,45 @@ module.exports = {
 
 // =========== Tests ==============
 
-function testRunner(){
-    ["init", "filter", "parseMessage", "httpMethod", "httpPath", "setHttpHeader", "deleteHttpHeader", "httpPathParam", "httpHeader", "httpBody", "setHttpBody", "httpBodyParam", "httpCookie", "setHttpCookie", "deleteHttpCookie", "httpHeaders"].forEach(function(t){
+function testRunner() {
+    ["init", "filter", "parseMessage", "httpMethod", "httpPath", "setHttpHeader", "deleteHttpHeader", "httpPathParam", "httpHeader", "httpBody", "setHttpBody", "httpBodyParam", "httpCookie", "setHttpCookie", "deleteHttpCookie", "httpHeaders"].forEach(function (t) {
         console.log(`====== Start ${t} =======`)
         eval(`TEST_${t}()`)
         console.log(`====== End ${t} =======`)
     })
 }
 
-function testBenchmark(){
+function testBenchmark() {
     const child_process = require('child_process');
 
     let gor = init();
-    gor.on("message", function(){
+    gor.on("message", function () {
     });
 
-    gor.on("request", function(){
+    gor.on("request", function () {
     });
 
-    for (var i = 0; i<256; i++) {
+    for (var i = 0; i < 256; i++) {
         let req = parseMessage(Buffer.from("1 2 3\nGET / HTTP/1.1\r\n\r\n").toString('hex'));
         req.ID = +Date.now()
         gor.emit(req);
 
-        gor.on("request", req.ID+"", function(){
-            gor.on("response", req.ID+"", function(){
+        gor.on("request", req.ID + "", function () {
+            gor.on("response", req.ID + "", function () {
             })
         })
 
-        if ( i % 3 == 0 ) {
+        if (i % 3 == 0) {
             let resp = parseMessage(Buffer.from("2 2 3\nHTTP/1.1 200 OK\r\n\r\n").toString('hex'));
             resp.ID = req.ID
             gor.emit(resp);
         }
     }
-    
+
     child_process.execSync("sleep 0.01");
 
-    gor.gc(1) 
-    
+    gor.gc(1)
+
     fail(JSON.stringify(gor.ch))
 }
 
@@ -494,15 +507,15 @@ function TEST_init() {
 
     let received = 0;
     let gor = init();
-    gor.on("message", function(){
+    gor.on("message", function () {
         received++; // should be called 3 times for for every request
     });
 
-    gor.on("request", function(){
+    gor.on("request", function () {
         received++; // should be called 1 time only for request
     });
 
-    gor.on("response", "2", function(){
+    gor.on("response", "2", function () {
         received++; // should be called 1 time only for specific response
     })
 
@@ -513,7 +526,7 @@ function TEST_init() {
     let req = parseMessage(Buffer.from("1 2 3\nGET / HTTP/1.1\r\n\r\n").toString('hex'));
     let resp = parseMessage(Buffer.from("2 2 3\nHTTP/1.1 200 OK\r\n\r\n").toString('hex'));
     let resp2 = parseMessage(Buffer.from("2 3 3\nHTTP/1.1 200 OK\r\n\r\n").toString('hex'));
-    
+
     gor.emit(req);
     gor.emit(resp);
     gor.emit(resp2);
@@ -529,20 +542,20 @@ function TEST_filter() {
     const child_process = require('child_process');
 
     let gor = init();
-    gor.on("request", function(req){
+    gor.on("request", function (req) {
         if (httpPath(req.http) != "/filter") {
             return req
         }
     });
 
-    gor.on("request", function(req){
+    gor.on("request", function (req) {
         return req
     });
 
 
     let reqPass = parseMessage(Buffer.from("1 2 3\nGET / HTTP/1.1\r\n\r\n").toString('hex'));
     let reqFilter = parseMessage(Buffer.from("1 2 3\nGET /filter HTTP/1.1\r\n\r\n").toString('hex'));
-    
+
     if (!gor.emit(reqPass)) {
         return fail("Should not filter request")
     }
@@ -556,9 +569,9 @@ function TEST_filter() {
 function TEST_parseMessage() {
     const exampleMessage = Buffer.from("1 2 3\nGET / HTTP/1.1\r\n\r\n").toString('hex')
     let msg = parseMessage(exampleMessage)
-    let expected = { type: '1', ID: '2', meta: ["1", "2", "3"], http: Buffer.from("GET / HTTP/1.1\r\n\r\n") }
+    let expected = {type: '1', ID: '2', meta: ["1", "2", "3"], http: Buffer.from("GET / HTTP/1.1\r\n\r\n")}
 
-    Object.keys(expected).forEach(function(k){
+    Object.keys(expected).forEach(function (k) {
         if (msg[k].toString() != expected[k].toString()) {
             fail(`${k}: '${expected[k]}' != '${msg[k]}'`)
         }
@@ -665,7 +678,7 @@ function TEST_httpHeader() {
 
     let expected = {"Host": "localhost:3000", "User-Agent": "Node", "Content-Length": "5"}
 
-    Object.keys(expected).forEach(function(name){
+    Object.keys(expected).forEach(function (name) {
         let payload = Buffer.from(examplePayload);
         let header = httpHeader(payload, name);
         if (!header) {
@@ -682,7 +695,7 @@ function TEST_setHttpHeader() {
     const examplePayload = "GET / HTTP/1.1\r\nUser-Agent: Node\r\nContent-Length: 5\r\n\r\nhello";
 
     // Modify existing header
-    ["", "1", "Long test header"].forEach(function(ua){
+    ["", "1", "Long test header"].forEach(function (ua) {
         let expected = `GET / HTTP/1.1\r\nUser-Agent: ${ua}\r\nContent-Length: 5\r\n\r\nhello`;
         let p = Buffer.from(examplePayload);
         p = setHttpHeader(p, "User-Agent", ua);
@@ -771,7 +784,7 @@ function TEST_httpHeaders() {
     let payload = Buffer.from(examplePayload);
     let headers = httpHeaders(payload);
 
-    ["Host", "User-Agent", "Content-Length"].forEach(function(header){
+    ["Host", "User-Agent", "Content-Length"].forEach(function (header) {
         let actual = headers[header];
         let expected = expectedHeaders[header];
 
