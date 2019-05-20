@@ -167,7 +167,7 @@ function searchResponses(id, searchPattern, callback) {
     let indexPattern = searchPattern.split("(")[0];
 
     if (!indexPattern) {
-        console.error("Search regexp should include capture group, pointing to the value: `prefix-(.*)`")
+        console.error("Search regexp should include capture group, pointing to the value: `prefix-(.*)`");
         return
     }
 
@@ -217,19 +217,19 @@ function searchResponses(id, searchPattern, callback) {
 //  hello
 
 function httpMethod(payload) {
-    var pEnd = payload.indexOf(' ');
+    let pEnd = payload.indexOf(' ');
     return payload.slice(0, pEnd).toString("ascii");
 }
 
 function httpPath(payload) {
-    var pStart = payload.indexOf(' ') + 1;
-    var pEnd = payload.indexOf(' ', pStart);
+    let pStart = payload.indexOf(' ') + 1;
+    let pEnd = payload.indexOf(' ', pStart);
     return payload.slice(pStart, pEnd).toString("ascii");
 }
 
 function setHttpPath(payload, newPath) {
-    var pStart = payload.indexOf(' ') + 1;
-    var pEnd = payload.indexOf(' ', pStart);
+    let pStart = payload.indexOf(' ') + 1;
+    let pEnd = payload.indexOf(' ', pStart);
 
     return Buffer.concat([payload.slice(0, pStart), Buffer.from(newPath), payload.slice(pEnd, payload.length)])
 }
@@ -248,8 +248,8 @@ function setHttpPathParam(payload, name, value) {
     let newPath = path.replace(re, name + "=" + encodeURI(value));
 
     // If we should add new param instead
-    if (newPath == path) {
-        if (newPath.indexOf("?") == -1) {
+    if (newPath === path) {
+        if (newPath.indexOf("?") === -1) {
             newPath += "?"
         } else {
             newPath += "&"
@@ -271,11 +271,11 @@ function setHttpStatus(payload, newStatus) {
 }
 
 function httpHeaders(payload) {
-    var httpHeaderString = payload.slice(0, payload.indexOf("\r\n\r\n") + 4).toString().split("\n").slice(1);
-    var headers = {};
+    let httpHeaderString = payload.slice(0, payload.indexOf("\r\n\r\n") + 4).toString().split("\n").slice(1);
+    let headers = {};
 
-    for (var item in httpHeaderString) {
-        var parts = httpHeaderString[item].split(":");
+    for (let item in httpHeaderString) {
+        let parts = httpHeaderString[item].split(":");
 
         if (parts.length > 1) {
             headers[parts[0]] = parts.slice(1).join(":").trim();
@@ -286,42 +286,42 @@ function httpHeaders(payload) {
 }
 
 function httpHeader(payload, name) {
-    var currentLine = 0;
-    var i = 0;
-    var header = {start: -1, end: -1, valueStart: -1}
-    var nameBuf = Buffer.from(name);
-    var nameBufLower = Buffer.from(name.toLowerCase());
+    let currentLine = 0;
+    let i = 0;
+    let header = {start: -1, end: -1, valueStart: -1};
+    let nameBuf = Buffer.from(name);
+    let nameBufLower = Buffer.from(name.toLowerCase());
 
     while (c = payload[i]) {
-        if (c == 13) { // new line "\n"
+        if (c === 13) { // new line "\n"
             currentLine++;
-            i++
-            header.end = i
+            i++;
+            header.end = i;
 
             if (currentLine > 0 && header.start > 0 && header.valueStart > 0) {
-                if (nameBuf.compare(payload, header.start, header.valueStart - 1) == 0 ||
-                    nameBufLower.compare(payload, header.start, header.valueStart - 1) == 0) { // ensure that headers are not case sensitive
+                if (nameBuf.compare(payload, header.start, header.valueStart - 1) === 0 ||
+                    nameBufLower.compare(payload, header.start, header.valueStart - 1) === 0) { // ensure that headers are not case sensitive
                     header.value = payload.slice(header.valueStart, header.end - 1).toString("utf-8").trim();
                     header.name = payload.slice(header.start, header.valueStart - 1).toString("utf-8");
                     return header
                 }
             }
 
-            header.start = -1
-            header.valueStart = -1
+            header.start = -1;
+            header.valueStart = -1;
             continue;
-        } else if (c == 10) { // "\r"
-            i++
+        } else if (c === 10) { // "\r"
+            i++;
             continue;
-        } else if (c == 58) { // ":" Header/value separator symbol
-            if (header.valueStart == -1) {
+        } else if (c === 58) { // ":" Header/value separator symbol
+            if (header.valueStart === -1) {
                 header.valueStart = i + 1;
-                i++
+                i++;
                 continue;
             }
         }
 
-        if (header.start == -1) header.start = i;
+        if (header.start === -1) header.start = i;
 
         i++
     }
@@ -349,12 +349,17 @@ function deleteHttpHeader(payload, name) {
     return payload
 }
 
+/**
+ * get HTTP Body
+ * @param {Buffer} payload
+ * @returns {Buffer}
+ */
 function httpBody(payload) {
     return payload.slice(payload.indexOf("\r\n\r\n") + 4, payload.length);
 }
 
 function setHttpBody(payload, newBody) {
-    let p = setHttpHeader(payload, "Content-Length", newBody.length)
+    let p = setHttpHeader(payload, "Content-Length", newBody.length);
     let headerEnd = p.indexOf("\r\n\r\n") + 4;
     return Buffer.concat([p.slice(0, headerEnd), newBody])
 }
@@ -362,7 +367,7 @@ function setHttpBody(payload, newBody) {
 function httpBodyParam(payload, name) {
     let body = httpBody(payload);
     let re = new RegExp(name + "=([^&$]+)");
-    if (body.indexOf(name + "=") != -1) {
+    if (body.indexOf(name + "=") !== -1) {
         let param = body.toString('utf-8').match(re);
         if (param) {
             return decodeURI(param[1]);
@@ -376,10 +381,10 @@ function setHttpBodyParam(payload, name, value) {
 
     let newBody = body.toString('utf-8');
 
-    if (newBody.indexOf(name + "=") != -1) {
+    if (newBody.indexOf(name + "=") !== -1) {
         newBody = newBody.replace(re, name + "=" + encodeURI(value));
     } else {
-        if (newBody.indexOf("=") != -1) {
+        if (newBody.indexOf("=") !== -1) {
             newBody += "&";
         }
         newBody += name + "=" + value;
@@ -392,18 +397,18 @@ function setHttpCookie(payload, name, value) {
     let h = httpHeader(payload, "Cookie");
     let cookie = h ? h.value : "";
     let cookies = cookie.split("; ").filter(function (v) {
-        return v.indexOf(name + "=") != 0
-    })
-    cookies.push(name + "=" + value)
-    return setHttpHeader(payload, "Cookie", cookies.join("; "))
+        return v.indexOf(name + "=") !== 0
+    });
+    cookies.push(name + "=" + value);
+    return setHttpHeader(payload, "Cookie", cookies.join("; "));
 }
 
 function deleteHttpCookie(payload, name) {
     let h = httpHeader(payload, "Cookie");
     let cookie = h ? h.value : "";
     let cookies = cookie.split("; ").filter(function (v) {
-        return v.indexOf(name + "=") != 0
-    })
+        return v.indexOf(name + "=") !== 0
+    });
     return setHttpHeader(payload, "Cookie", cookies.join("; "))
 }
 
@@ -412,10 +417,10 @@ function httpCookie(payload, name) {
     let cookie = h ? h.value : "";
     let value;
     let cookies = cookie.split("; ").forEach(function (v) {
-        if (v.indexOf(name + "=") == 0) {
+        if (v.indexOf(name + "=") === 0) {
             value = v.substr(name.length + 1);
         }
-    })
+    });
     return value;
 }
 
@@ -446,7 +451,7 @@ module.exports = {
     test: testRunner,
     benchmark: testBenchmark,
     httpHeaders: httpHeaders
-}
+};
 
 
 // =========== Tests ==============
